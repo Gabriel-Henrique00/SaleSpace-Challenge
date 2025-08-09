@@ -1,7 +1,33 @@
 import { Request, Response } from 'express';
 import { OrderUseCases } from '../../application/use-cases/order-use-cases';
+import { Order, OrderItemWithDetails, Discount } from '../../domain/entities/order';
+import { ProductRepository } from '../../domain/repositories/product-repository';
+
+interface OrderSummary {
+    currency: string;
+    totalBeforeDiscounts: number;
+    totalAfterDiscounts: number;
+}
+
+interface ItemsSummary {
+    productId: string;
+    name: string;
+    quantity: number;
+    unitPrice: number;
+    subtotal: number;
+    discountsApplied: string;
+    finalPrice: number;
+}
+
+interface SimplifiedOrderResponse {
+    orderSummary: OrderSummary;
+    itemsSummary: ItemsSummary[];
+    discountsDetail: Discount[];
+}
 
 export class OrderController {
+    private productRepository = new ProductRepository();
+
     constructor(private orderUseCases: OrderUseCases) {}
 
     private validateItemsPayload(items: any): string | null {
@@ -17,6 +43,35 @@ export class OrderController {
         return null;
     }
 
+    private formatResponse(order: Order): SimplifiedOrderResponse {
+        const totalBeforeDiscounts = order.items.reduce((sum, item) => sum + item.subtotal, 0);
+
+        const itemsSummary = order.items.map(item => {
+            const product = this.productRepository.findById(item.productId);
+            const discountsApplied = item.itemDiscounts.length > 0
+                ? item.itemDiscounts.map(d => `${d.name} (${d.amount.toFixed(2)})`).join(', ')
+                : "Nenhum";
+            return {
+                productId: item.productId,
+                name: product?.name || 'Unknown Product',
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                subtotal: item.subtotal,
+                discountsApplied: discountsApplied,
+                finalPrice: item.total
+            };
+        });
+        return {
+            orderSummary: {
+                currency: order.currency,
+                totalBeforeDiscounts: totalBeforeDiscounts,
+                totalAfterDiscounts: order.total
+            },
+            itemsSummary: itemsSummary,
+            discountsDetail: order.discounts
+        };
+    }
+
     public async calculateOrder(req: Request, res: Response): Promise<Response> {
         const { items } = req.body;
         const validationError = this.validateItemsPayload(items);
@@ -26,7 +81,8 @@ export class OrderController {
 
         try {
             const order = await this.orderUseCases.calculateOrder(items);
-            return res.status(200).json(order);
+            const formattedResponse = this.formatResponse(order);
+            return res.status(200).json(formattedResponse);
         } catch (error) {
             if (error instanceof Error && error.message.includes('not found')) {
                 return res.status(404).json({ message: error.message });
@@ -45,7 +101,11 @@ export class OrderController {
 
         try {
             const quote = await this.orderUseCases.createQuote(items);
-            return res.status(201).json(quote);
+            const formattedResponse = {
+                quoteId: quote.quoteId,
+                ...this.formatResponse(quote.order)
+            };
+            return res.status(201).json(formattedResponse);
         } catch (error) {
             if (error instanceof Error && error.message.includes('not found')) {
                 return res.status(404).json({ message: error.message });
@@ -64,7 +124,8 @@ export class OrderController {
 
         try {
             const order = await this.orderUseCases.finalizeOrder(quoteId);
-            return res.status(200).json(order);
+            const formattedResponse = this.formatResponse(order);
+            return res.status(200).json(formattedResponse);
         } catch (error) {
             if (error instanceof Error && error.message.includes('not found')) {
                 return res.status(404).json({ message: error.message });
