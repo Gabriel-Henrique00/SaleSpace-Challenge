@@ -1,0 +1,179 @@
+openapi: 3.0.0
+info:
+  title: Salespace Challenge API
+  description: API Rest para calcular o valor de um pedido com regras de desconto progressivas.
+  version: 1.0.0
+servers:
+  - url: http://localhost:3000/v1
+    description: Development server
+paths:
+  /orders/quote:
+    post:
+      summary: Cria uma cotação para um pedido.
+      tags:
+        - Orders
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/OrderItem'
+      responses:
+        '201':
+          description: Cotação criada com sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuoteResponse'
+        '404':
+          description: Produto não encontrado.
+        '422':
+          description: Entidade não processável (payload inválido).
+        '500':
+          description: Erro interno do servidor.
+  /orders:
+    post:
+      summary: Finaliza um pedido com base em uma cotação existente.
+      tags:
+        - Orders
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                quoteId:
+                  type: string
+                  description: Chave de idempotência da cotação.
+                  example: "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+      responses:
+        '200':
+          description: Pedido finalizado com sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '404':
+          description: Produto não encontrado.
+        '422':
+          description: Cotação inválida ou expirada.
+        '500':
+          description: Erro interno do servidor.
+  /orders/calculate:
+    post:
+      summary: Calcula o preço final de um pedido sem gerar uma cotação.
+      tags:
+        - Orders
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/OrderItem'
+      responses:
+        '200':
+          description: Pedido calculado com sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '404':
+          description: Produto não encontrado.
+        '422':
+          description: Entidade não processável (payload inválido).
+        '500':
+          description: Erro interno do servidor.
+components:
+  schemas:
+    OrderItem:
+      type: object
+      properties:
+        productId:
+          type: string
+          example: "sku-001"
+        quantity:
+          type: integer
+          example: 12
+    Discount:
+      type: object
+      properties:
+        code:
+          type: string
+          example: "QTY_TIER_15PCT"
+        name:
+          type: string
+          example: "Desconto por volume 15%"
+        basis:
+          type: number
+          format: float
+          example: 1205.14
+        amount:
+          type: number
+          format: float
+          example: 180.77
+        metadata:
+          type: object
+          additionalProperties: true
+          example:
+            totalItems: 19
+            tier: ">=20"
+    Order:
+      type: object
+      properties:
+        currency:
+          type: string
+          example: "BRL"
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              productId:
+                type: string
+                example: "sku-001"
+              unitPrice:
+                type: number
+                format: float
+                example: 79.9
+              quantity:
+                type: integer
+                example: 12
+              subtotal:
+                type: number
+                format: float
+                example: 958.8
+              itemDiscounts:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Discount'
+              total:
+                type: number
+                format: float
+                example: 958.8
+        discounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Discount'
+        total:
+          type: number
+          format: float
+          example: 974.37
+    QuoteResponse:
+      type: object
+      properties:
+        quoteId:
+          type: string
+          example: "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+        order:
+          $ref: '#/components/schemas/Order'
