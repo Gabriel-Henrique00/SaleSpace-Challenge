@@ -22,7 +22,7 @@ export class OrderUseCases {
             }
             productsMap.set(product.id, product);
             orderItemsWithDetails.push({
-                ...item,
+                ...item,//Desempacotar elementos array
                 unitPrice: product.unitPrice,
                 subtotal: 0,
                 itemDiscounts: [],
