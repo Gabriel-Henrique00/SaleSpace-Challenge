@@ -6,7 +6,7 @@
     "start": "node dist/infrastructure/server.js",
     "build": "tsc",
     "dev": "nodemon src/infrastructure/server.ts",
-    "test": "jest"
+    "test": "jest --coverage"
   },
   "keywords": [],
   "author": "",
