@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { OrderUseCases } from '../../application/use-cases/order-use-cases';
-import { Order, OrderItemWithDetails, Discount } from '../../domain/entities/order';
+import { Order, Discount } from '../../domain/entities/order';
 import { ProductRepository } from '../../domain/repositories/product-repository';
 
 interface OrderSummary {
@@ -127,12 +127,10 @@ export class OrderController {
             const formattedResponse = this.formatResponse(order);
             return res.status(200).json(formattedResponse);
         } catch (error) {
-            if (error instanceof Error && error.message.includes('not found')) {
-                return res.status(404).json({ message: error.message });
-            }
-            if (error instanceof Error && error.message.includes('expired')) {
+            if (error instanceof Error && (error.message.includes('expired') || error.message.includes('Invalid'))) {
                 return res.status(422).json({ message: error.message });
             }
+
             console.error('Unexpected error:', error);
             return res.status(500).json({ message: 'Internal server error' });
         }
