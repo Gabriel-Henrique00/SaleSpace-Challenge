@@ -96,9 +96,10 @@ export class DiscountEngine {
 
         const allDiscounts: Discount[] = [];
 
-        for (const item of items) {
-            const product = products.get(item.productId);
-            if (!product) continue;
+        const validItems = items.filter(item => products.has(item.productId));
+
+        for (const item of validItems) {
+            const product = products.get(item.productId)!;
 
             item.subtotal = this.calculateItemSubtotal(item);
             item.total = item.subtotal;
@@ -116,19 +117,17 @@ export class DiscountEngine {
         const categoryEligible = accessoriesUnits > 5;
 
         if (categoryEligible) {
-            for (const item of items) {
-                const product = products.get(item.productId);
-                if (!product) continue;
+            for (const item of validItems) {
+                const product = products.get(item.productId)!;
 
                 const discounts = this.applyCategoryDiscount(item, product, categoryEligible);
                 if (discounts.length > 0) {
-                    item.itemDiscounts = [...(item.itemDiscounts || []), ...discounts];
-                }
+                    item.itemDiscounts = [...item.itemDiscounts, ...discounts];                }
             }
         }
 
         total = 0;
-        for (const item of items) {
+        for (const item of validItems) {
             total = roundToTwoDecimals(total + item.total);
         }
 
@@ -148,7 +147,7 @@ export class DiscountEngine {
 
         return {
             currency: 'BRL',
-            items,
+            items: validItems,
             discounts: allDiscounts,
             total
         };
